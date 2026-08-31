@@ -195,3 +195,6 @@ opt-level = 3
 [profile.release]
 strip = "debuginfo"
 codegen-units = 1
+
+[patch.crates-io]
+pollster = { path = "/users/gasper/repos/pollster" }

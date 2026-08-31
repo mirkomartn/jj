@@ -68,6 +68,7 @@ mod test_op_restore_command;
 mod test_op_revert_command;
 mod test_operations;
 mod test_parallelize_command;
+mod test_props_hegel;
 mod test_rebase_command;
 mod test_repo_change_report;
 mod test_resolve_command;
