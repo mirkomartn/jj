@@ -111,10 +111,13 @@ impl JjCli {
     #[allow(unused)]
     fn jj_abandon(&mut self, tc: TestCase, ignore_immutable: bool) {
         let revisions = if ignore_immutable {
-            self.revisions("all() & ~root()")
+            self.revisions("all() & ~(merges()- & root()+ | root())")
         } else {
-            self.revisions("mutable()")
+            self.revisions("mutable() & ~(merges()- & root()+)")
         };
+
+        tc.assume(!revisions.is_empty());
+
         let work_dir = self.test_env.work_dir("repo");
 
         let revs = tc
@@ -136,15 +139,17 @@ impl JjCli {
             ret
         };
 
-        work_dir.run_jj(&args);
+        work_dir.run_jj(&args).success();
     }
 
     fn jj_absorb(&mut self, tc: TestCase, ignore_immutable: bool) {
         let revisions = if ignore_immutable {
-            self.revisions("all() & ~root()")
+            self.revisions("all() & ~root() & ~root()+")
         } else {
-            self.revisions("mutable()")
+            self.revisions("mutable() & ~root()+")
         };
+
+        tc.assume(!revisions.is_empty());
 
         let work_dir = self.test_env.work_dir("repo");
 
@@ -160,35 +165,45 @@ impl JjCli {
             ret
         };
 
-        work_dir.run_jj(&args);
+        work_dir.run_jj(&args).success();
     }
 
     fn jj_duplicate(&mut self, tc: TestCase, _ignore_immutable: bool) {
         let revisions = self.revisions("all() & ~root()");
+
+        tc.assume(revisions.len() > 1);
+
         let work_dir = self.test_env.work_dir("repo");
 
-        let duplicates = tc.draw(
-            gs::vecs(gs::sampled_from(&revisions))
-                .max_size(revisions.len() - 1)
+        let duplicates = tc
+            .draw(
+                gs::vecs(gs::sampled_from(&revisions))
+                    .max_size(revisions.len() - 1)
+                    .min_size(1),
+            )
+            .join("|");
+        let parents = tc
+            .draw(
+                gs::vecs(gs::sampled_from(
+                    revisions
+                        .iter()
+                        .filter(|x| !duplicates.contains(*x))
+                        .collect::<Vec<&String>>(),
+                ))
                 .min_size(1),
-        );
-        let parents = tc.draw(
-            gs::vecs(gs::sampled_from(
-                revisions
-                    .iter()
-                    .filter(|x| !duplicates.contains(x))
-                    .collect::<Vec<&String>>(),
-            ))
-            .min_size(1),
-        );
+            )
+            .into_iter()
+            .join("|");
 
-        work_dir.run_jj(&[
+        let args = &[
             "duplicate",
             "-r",
-            duplicates.join("|").as_str(),
+            duplicates.as_str(),
             "-o",
-            parents.into_iter().join("|").as_str(),
-        ]);
+            parents.as_str(),
+        ];
+
+        work_dir.run_jj(args).success();
     }
 
     fn jj_edit(&mut self, tc: TestCase, ignore_immutable: bool) {
@@ -197,6 +212,8 @@ impl JjCli {
         } else {
             self.revisions("mutable()")
         };
+        tc.assume(!revisions.is_empty());
+
         let work_dir = self.test_env.work_dir("repo");
 
         let rev = tc.draw(gs::sampled_from(&revisions));
@@ -211,15 +228,22 @@ impl JjCli {
             ret
         };
 
-        work_dir.run_jj(&args);
+        work_dir.run_jj(&args).success();
     }
 
     fn jj_new(&mut self, tc: TestCase, _ignore_immutable: bool) {
         let revisions = self.revisions("all() & ~root()"); // cannot create merge commit with root()
+        tc.assume(!revisions.is_empty());
+
         let work_dir = self.test_env.work_dir("repo");
 
-        let revset = tc.draw(gs::vecs(gs::sampled_from(&revisions)).min_size(1));
+        let revset = tc.draw(
+            gs::vecs(gs::sampled_from(&revisions))
+                .min_size(1)
+                .unique(true),
+        );
 
+        // Cannot create merge commit with root().
         let revset = if revset.len() > 1 {
             let revset = revset.join("|");
             format!("({revset}) & ~root()")
@@ -227,15 +251,19 @@ impl JjCli {
             format!("change_id({})", revset[0])
         };
 
-        work_dir.run_jj(&["new", "-r", revset.as_str()]);
+        let args = &["new", "-r", revset.as_str()];
+
+        work_dir.run_jj(args).success();
     }
 
     fn jj_parallelize(&mut self, tc: TestCase, ignore_immutable: bool) {
         let revisions = if ignore_immutable {
-            self.revisions("all() & ~root()")
+            self.revisions("all() & ~root() & ~root()+")
         } else {
-            self.revisions("mutable()")
+            self.revisions("mutable() & ~root()+")
         };
+        tc.assume(!revisions.is_empty());
+
         let work_dir = self.test_env.work_dir("repo");
 
         let revset = tc
@@ -252,15 +280,17 @@ impl JjCli {
             ret
         };
 
-        work_dir.run_jj(&args);
+        work_dir.run_jj(&args).success();
     }
 
     fn jj_rebase(&mut self, tc: TestCase, ignore_immutable: bool) {
         let revisions = if ignore_immutable {
-            self.revisions("all() & ~root()")
+            self.revisions("all() & ~root() & root()+")
         } else {
-            self.revisions("mutable()")
+            self.revisions("mutable() & ~root()+")
         };
+        tc.assume(revisions.len() > 1);
+
         let work_dir = self.test_env.work_dir("repo");
 
         let commits = tc
@@ -294,7 +324,7 @@ impl JjCli {
             ret
         };
 
-        work_dir.run_jj(&args);
+        work_dir.run_jj(&args).success();
     }
 
     fn jj_restore(&mut self, tc: TestCase, ignore_immutable: bool) {
@@ -303,7 +333,10 @@ impl JjCli {
         } else {
             self.revisions("mutable()")
         };
+        tc.assume(!revisions.is_empty());
+
         let all_no_root = self.revisions("all() & ~root()");
+        tc.assume(!all_no_root.is_empty());
 
         let work_dir = self.test_env.work_dir("repo");
 
@@ -325,7 +358,7 @@ impl JjCli {
             ret
         };
 
-        work_dir.run_jj(&args);
+        work_dir.run_jj(&args).success();
     }
 
     #[allow(unused)]
@@ -333,26 +366,31 @@ impl JjCli {
         let all = self.revisions("all()");
         let all_no_root = self.revisions("all() & ~root()");
 
+        tc.assume(!all.is_empty());
+        tc.assume(!all_no_root.is_empty());
+
         let work_dir = self.test_env.work_dir("repo");
 
-        let onto = tc.draw(gs::vecs(gs::sampled_from(&all)).min_size(1));
-        let revs = tc.draw(gs::vecs(gs::sampled_from(&all_no_root)).min_size(1));
+        let onto = tc
+            .draw(gs::vecs(gs::sampled_from(&all)).min_size(1))
+            .join("|");
+        let revs = tc
+            .draw(gs::vecs(gs::sampled_from(&all_no_root)).min_size(1))
+            .join("| ");
 
-        work_dir.run_jj(&[
-            "revert",
-            "-r",
-            revs.join("|").as_str(),
-            "-o",
-            onto.join("|").as_str(),
-        ]);
+        let args = &["revert", "-r", revs.as_str(), "-o", onto.as_str()];
+
+        work_dir.run_jj(args).success();
     }
 
     fn jj_squash(&mut self, tc: TestCase, ignore_immutable: bool) {
         let revisions = if ignore_immutable {
-            self.revisions("all() & ~root()")
+            self.revisions("all() & ~root()+ & root()")
         } else {
-            self.revisions("mutable()")
+            self.revisions("mutable() & ~root()+")
         };
+        tc.assume(revisions.len() > 2);
+
         let work_dir = self.test_env.work_dir("repo");
 
         let from = tc
@@ -362,18 +400,12 @@ impl JjCli {
                     .min_size(1),
             )
             .join("|");
-        let to = tc
-            .draw(
-                gs::vecs(gs::sampled_from(
-                    revisions
-                        .iter()
-                        .filter(|x| !from.contains(*x))
-                        .collect::<Vec<&String>>(),
-                ))
-                .min_size(1),
-            )
-            .into_iter()
-            .join("|");
+        let to = tc.draw(gs::sampled_from(
+            revisions
+                .iter()
+                .filter(|x| !from.contains(*x))
+                .collect::<Vec<&String>>(),
+        ));
 
         let args = {
             let mut ret = vec!["squash", "-f", from.as_str(), "-t", to.as_str()];
@@ -385,7 +417,7 @@ impl JjCli {
             ret
         };
 
-        work_dir.run_jj(&args);
+        work_dir.run_jj(&args).success();
     }
 }
 
