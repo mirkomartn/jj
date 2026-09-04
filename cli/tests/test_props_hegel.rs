@@ -18,6 +18,8 @@ use itertools::Itertools as _;
 
 use crate::common::TestEnvironment;
 
+mod revsets;
+
 struct JjCli {
     test_env: TestEnvironment,
 }
@@ -53,17 +55,42 @@ impl JjCli {
             .collect()
     }
 
-    #[invariant]
-    fn check_invariants(&self, _: TestCase) {
+    fn arb_revset(&self, tc: TestCase) -> String {
         let work_dir = self.test_env.work_dir("repo");
-        let succ = work_dir.run_jj(["log", "-r", "at_operation(@-, all())"]);
+        let ops = work_dir
+            .run_jj(&[
+                "op",
+                "log",
+                "-G",
+                "-T",
+                "id ++ '|'",
+                "--ignore-working-copy",
+            ])
+            .stdout;
+        let ops: Vec<String> = ops
+            .raw()
+            .split('|')
+            .filter(|s| !s.is_empty())
+            .map(Into::into)
+            .collect();
 
-        if !succ.status.success() {
-            let oplog = work_dir.run_jj(["op", "log"]).stderr;
-            let graph = work_dir.run_jj(["log", "-r", "all()"]).stderr;
+        revsets::draw_revset(&tc, 2, &ops)
+    }
+
+    #[invariant]
+    fn log_never_panics(&self, tc: TestCase) {
+        let work_dir = self.test_env.work_dir("repo");
+        let revset = self.arb_revset(tc);
+        let succ = work_dir.run_jj(["log", "-r", &revset]);
+
+        // Panics return 101
+        if !succ.status.code().unwrap_or(0) != 101 {
+            let oplog = work_dir.run_jj(["op", "log"]).stdout;
+            let graph = work_dir.run_jj(["log", "-r", "all()"]).stdout;
 
             eprintln!("{graph}\n\n{oplog}");
-            succ.success();
+            eprintln!("log panicked with {revset}");
+            panic!();
         }
     }
 
