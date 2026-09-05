@@ -12,13 +12,56 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::fs::OpenOptions;
+use std::fs::create_dir_all;
+use std::io::Write as _;
+
 use hegel::TestCase;
 use hegel::generators as gs;
+use hegel::generators::Generator as _;
 use itertools::Itertools as _;
 
 use crate::common::TestEnvironment;
 
 mod revsets;
+
+fn draw_file_contents(tc: &TestCase) -> Vec<u8> {
+    tc.draw(hegel::one_of!(
+        // Empty files represent a significant edge case, so we want to increase the likelihood of
+        // empty file contents in subsequent transitions.
+        gs::just(Vec::new()),
+        // [0] is the simplest "binary" file and it's included here to increase the likelihood of
+        // identical binary file contents in subsequent transition.
+        gs::just(vec![0_u8]),
+        // Diffing is line-oriented, so try to generate files with relatively
+        // many newlines.
+        gs::vecs(hegel::one_of!(
+            gs::just('\n'),
+            gs::characters()
+                .min_codepoint('a' as u32)
+                .max_codepoint('z' as u32),
+            gs::characters().exclude_categories(&["Cc", "Cf", "Cs", "Co", "Cn"]),
+        ))
+        .map(|chars| chars.into_iter().collect::<String>().into_bytes()),
+        // Arbitrary binary contents, not limited to valid UTF-8.
+        gs::binary().max_size(31),
+    ))
+}
+
+fn draw_path_component(tc: &TestCase) -> String {
+    // HACK: Forbidding `.` here to avoid `.`/`..` in the path components, which
+    // causes downstream errors.
+    tc.draw(hegel::one_of!(
+        gs::just("a".to_owned()),
+        gs::just("b".to_owned()),
+        gs::just("c".to_owned()),
+        gs::just("d".to_owned()),
+        gs::text()
+            .min_size(1)
+            .exclude_categories(&["Cc", "Cf", "Cs", "Co", "Cn"])
+            .exclude_characters("/."),
+    ))
+}
 
 struct JjCli {
     test_env: TestEnvironment,
@@ -55,7 +98,7 @@ impl JjCli {
             .collect()
     }
 
-    fn arb_revset(&self, tc: TestCase) -> String {
+    fn draw_revset(&self, tc: TestCase) -> String {
         let work_dir = self.test_env.work_dir("repo");
         let ops = work_dir
             .run_jj(&[
@@ -81,7 +124,7 @@ impl JjCli {
     fn log_never_panics(&self, tc: TestCase) {
         let work_dir = self.test_env.work_dir("repo");
         let revset = self.arb_revset(tc);
-        let succ = work_dir.run_jj(["log", "-r", &revset]);
+        let succ = work_dir.run_jj(["log", "-r", &revset, "--no-integrate-operation"]);
 
         // Panics return 101
         if !succ.status.code().unwrap_or(0) != 101 {
@@ -92,6 +135,29 @@ impl JjCli {
             eprintln!("log panicked with {revset}");
             panic!();
         }
+    }
+
+    #[rule]
+    fn write_file(&mut self, tc: TestCase) {
+        let path = draw_path_component(&tc);
+        let file = draw_file_contents(&tc);
+
+        // In 9/10 times append, otherwise write over.
+        let append = tc.draw(gs::weighted_booleans(0.9));
+
+        let work_dir = self.test_env.work_dir("repo");
+        let path = work_dir.root().join(path);
+
+        create_dir_all(path.parent().unwrap()).unwrap();
+
+        OpenOptions::new()
+            .write(true)
+            .create(true)
+            .append(append)
+            .open(path)
+            .unwrap()
+            .write_all(file.as_slice())
+            .unwrap();
     }
 
     #[rule]
