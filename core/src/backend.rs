@@ -27,6 +27,7 @@ use async_trait::async_trait;
 use chrono::TimeZone as _;
 use futures::AsyncRead;
 use futures::stream::BoxStream;
+use pollster::Fail;
 use smallvec::SmallVec;
 use thiserror::Error;
 
@@ -383,6 +384,47 @@ pub enum BackendError {
     /// supported by the particular backend.
     #[error("{0}")]
     Unsupported(String),
+}
+
+impl Fail for BackendError {
+    const ENV_SWITCH: &'static str = "JJ_PROPS_MONKEY_BACKEND_ERROR";
+
+    const FAILURES: &[fn() -> Self] = &[
+        || Self::ObjectNotFound {
+            object_type: "monkey type".into(),
+            hash: "monkey hash".into(),
+            source: Into::<Box<dyn std::error::Error + Send + Sync>>::into(
+                "monkey object not found",
+            ),
+        },
+        || Self::ReadObject {
+            object_type: "monkey type".into(),
+            hash: "monkey hash".into(),
+            source: Into::<Box<dyn std::error::Error + Send + Sync>>::into("monkey read object"),
+        },
+        || Self::ReadAccessDenied {
+            object_type: "monkey type".into(),
+            hash: "monkey hash".into(),
+            source: Into::<Box<dyn std::error::Error + Send + Sync>>::into(
+                "monkey read access denied",
+            ),
+        },
+        || Self::ReadFile {
+            path: RepoPathBuf::root(),
+            id: FileId::new(vec![]),
+            source: Into::<Box<dyn std::error::Error + Send + Sync>>::into("monkey read file"),
+        },
+        || Self::WriteObject {
+            object_type: "commit",
+            source: Into::<Box<dyn std::error::Error + Send + Sync>>::into("monkey write object"),
+        },
+        || {
+            Self::Other(Into::<Box<dyn std::error::Error + Send + Sync>>::into(
+                "monkey other",
+            ))
+        },
+        || Self::Unsupported("monkey".into()),
+    ];
 }
 
 /// A specialized [`Result`] type for commit backend errors.

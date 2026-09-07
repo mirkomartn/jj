@@ -23,6 +23,7 @@ use std::time::SystemTime;
 
 use async_trait::async_trait;
 use itertools::Itertools as _;
+use pollster::Fail;
 use thiserror::Error;
 
 use crate::backend::CommitId;
@@ -454,6 +455,34 @@ pub enum OpStoreError {
     },
     #[error(transparent)]
     Other(Box<dyn std::error::Error + Send + Sync>),
+}
+
+impl Fail for OpStoreError {
+    const ENV_SWITCH: &'static str = "JJ_PROPS_MONKEY_OP_STORE_ERROR";
+
+    const FAILURES: &[fn() -> Self] = &[
+        || Self::ObjectNotFound {
+            object_type: "monkey object type".into(),
+            hash: "monkey hash".into(),
+            source: Into::<Box<dyn std::error::Error + Send + Sync>>::into(
+                "monkey object not found",
+            ),
+        },
+        || Self::ReadObject {
+            object_type: "monkey object type".into(),
+            hash: "monkey hash".into(),
+            source: Into::<Box<dyn std::error::Error + Send + Sync>>::into("monkey read object"),
+        },
+        || Self::WriteObject {
+            object_type: "monkey object",
+            source: Into::<Box<dyn std::error::Error + Send + Sync>>::into("monkey write object"),
+        },
+        || {
+            Self::Other(Into::<Box<dyn std::error::Error + Send + Sync>>::into(
+                "monkey other",
+            ))
+        },
+    ];
 }
 
 pub type OpStoreResult<T> = Result<T, OpStoreError>;

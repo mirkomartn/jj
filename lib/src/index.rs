@@ -20,6 +20,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use itertools::Itertools as _;
+use pollster::Fail;
 use thiserror::Error;
 
 use crate::backend::ChangeId;
@@ -45,6 +46,23 @@ pub enum IndexStoreError {
     Write(#[source] Box<dyn std::error::Error + Send + Sync>),
 }
 
+impl Fail for IndexStoreError {
+    const ENV_SWITCH: &'static str = "JJ_PROPS_MONKEY_INDEX_STORE_ERROR";
+
+    const FAILURES: &[fn() -> Self] = &[
+        || {
+            Self::Read(Into::<Box<dyn std::error::Error + Send + Sync>>::into(
+                "monkey read",
+            ))
+        },
+        || {
+            Self::Write(Into::<Box<dyn std::error::Error + Send + Sync>>::into(
+                "monkey write",
+            ))
+        },
+    ];
+}
+
 /// Result of [`IndexStore`] operations.
 pub type IndexStoreResult<T> = Result<T, IndexStoreError>;
 
@@ -58,6 +76,19 @@ pub enum IndexError {
     /// Some other index error.
     #[error(transparent)]
     Other(Box<dyn std::error::Error + Send + Sync>),
+}
+
+impl Fail for IndexError {
+    const ENV_SWITCH: &'static str = "JJ_PROPS_MONKEY_INDEX_ERROR";
+
+    const FAILURES: &[fn() -> Self] = &[
+        || Self::AllHeadsForGcUnsupported,
+        || {
+            Self::Other(Into::<Box<dyn std::error::Error + Send + Sync>>::into(
+                "monkey other",
+            ))
+        },
+    ];
 }
 
 /// Result of [`Index`] operations.
