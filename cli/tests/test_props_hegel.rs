@@ -291,6 +291,8 @@ impl JjCli {
 
         let succ = base.run_jj(["workspace", "update-stale"]);
         if !succ.status.success() {
+            eprintln!("base: `jj workspace update-stale` failed.");
+
             eprintln!("{}", succ.stderr);
             eprintln!("{}", succ.stdout);
             succ.success();
@@ -318,6 +320,8 @@ impl JjCli {
         if !succ.status.success() {
             let succ = fallible.run_jj(["workspace", "update-stale"]);
             if !succ.status.success() {
+                eprintln!("fallible: `jj workspace update-stale` failed.");
+
                 eprintln!("{}", succ.stderr);
                 eprintln!("{}", succ.stdout);
                 succ.success();
@@ -325,6 +329,8 @@ impl JjCli {
 
             let succ = fallible.run_jj_with(|cmd| cmd.args(&args));
             if !succ.status.success() {
+                eprintln!("fallible: `jj {}` failed", args.join(" "));
+
                 eprintln!("{}", succ.stderr);
                 eprintln!("{}", succ.stdout);
                 succ.success();
@@ -780,6 +786,7 @@ impl JjCli {
 
 #[hegel::test(hegel::Settings::new().print_blob(true).suppress_health_check
     ([hegel::HealthCheck::TooSlow]).verbosity(hegel::Verbosity::Quiet))]
+#[hegel::reproduce_failure("AXicnVg9a5RBEN7Zr9e7izkTTaGFiFhY2UYQFa0sBPML7CUoCBaCpdiJVha2+gMs7IKkDfoHbPwFFhYBy/Bm9/bjfWd2dvNyV9x+z84888zM3h2AEGLuv/aMFakPoTGhiZM2j7T7+n3yXqLl1ECSAa4LgEWksUodSB1ZdPKSk2NMkBjHeYeT27nO8fFHde/HcMB0aBdzzpzPSilkc5yUaDI2mlvrAh5933dIHoYlTmoQRJcGeoCuY803C26h2Yn+e/x/259XeM3MKQIsIyRnqcp4eKHfFHByBEJSY7JQlpScKHlTelfWZ8rjagympGq6NT/39jpaTBaNOARcoziw8KSmqHjo1H68t5Nos2ThZiGcDaYLszMNnMYS1GdWMeiVfbTIUyj8JMfBFe+QOR1qFBeamkNj4KBX4g/xwBrhFiluJiQmqCWmlVxvorz2xO1ZilZIlhdoZkaYGWUbm6MwR22A5XMk1ILNTYRCBO12yLCJFhAOvnOphpTn5yY1jPU+G1tAOeRBf/kPQo7bPfh5I8ZDmHCfC9x5DMtQ9ry0vr+fGEHJhPA6R3zX8DhX/YpUHG7/sG+j65n0T8U5DcsijlOMzWte+tF3NgglTA6brERHdJGE9zAhc1cI5DX9+2JO2GaAq4cmK8lmWIOUJeHEhsGc3IbY3w7shqVlPT68fXMvPksKCzXj6QQ7DUZE6BYG2G9stefJERzy9Q4fD9nWjTrXqTWqviTXQlUSJKcchsIlR3e7GQm+0prRk5apajgG2XLGYj0kO5+2v0TMD18t810M9HkQd81aNo6Q2kLjckcD5mq83vrlqoq5PNps69qUcrp6kmvcrlECwEndUmDHkc/5hX3jDq8U75d30T+f8DsiqXMxaXV2IZAkuVUShb9sJ8sDVDIsqqRsPNsG//BvPZ0n/RUPHi5D59kbE5R4zoJr27RUJHf5lLV9FiwT+Fi+RV9fdaKvCCaVAiNR17ODrOsGxXHNZQAMaPPhFQeLkctR8snKbBQxZVLc9U93cxZY58fhqIbIRhzg0SZnnAGunG7Vohkm5JvGnwVyTKqZEFPeHa49BbM2Qd0=")]
 fn test_aufhebung(tc: TestCase) {
     let jjcli = JjCli::new();
     hegel::stateful::run(jjcli, tc);
