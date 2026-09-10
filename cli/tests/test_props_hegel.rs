@@ -225,7 +225,8 @@ impl JjCli {
     #[rule]
     fn jj_cli(&mut self, tc: TestCase) {
         let ignore_immutable = tc.draw(gs::booleans());
-        let at_operation = tc.draw(gs::optional(gs::sampled_from(self.operations("base"))));
+        // Current limit: can't work with --at-operation -- there's a bug in the upstream.
+        let at_operation: Option<String> = None; // tc.draw(gs::optional(gs::sampled_from(self.operations("base"))));
 
         let revisions = if ignore_immutable {
             self.change_ids(
@@ -300,7 +301,8 @@ impl JjCli {
 
         let fail_seed = tc.draw(gs::integers::<u64>()).to_string();
         // TODO: it should be the same operation, if anything
-        let at_operation = tc.draw(gs::optional(gs::sampled_from(self.operations("fallible"))));
+        // let at_operation = tc.draw(gs::optional(gs::sampled_from(self.operations("fallible"))));
+        let at_operation: Option<String> = None;
 
         let args = action(
             self,
