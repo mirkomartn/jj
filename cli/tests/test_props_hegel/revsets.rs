@@ -52,6 +52,11 @@ fn draw_revset_inner(tc: &hegel::TestCase, max_depth: u32, ops: &[String]) -> Re
         "parents",
     ];
 
+    // Base case: return a no_args function.
+    if max_depth == 0 {
+        return Revset::Base(tc.draw(gs::sampled_from(&no_args)).to_string());
+    }
+
     // Choose random function type.
     let func = tc.draw(hegel::one_of!(
         gs::sampled_from(&no_args),
@@ -60,10 +65,8 @@ fn draw_revset_inner(tc: &hegel::TestCase, max_depth: u32, ops: &[String]) -> Re
         gs::just("at_operation")
     ));
 
-    // Base case: return a no_args function.
-    if no_args.contains(&func) || max_depth == 0 {
-        let choice = tc.draw(gs::integers::<usize>().max_value(no_args.len() - 1));
-        return Revset::Base(no_args[choice].to_string());
+    if no_args.contains(&func) {
+        return Revset::Base(func.to_string());
     }
 
     let inner = tc.draw(draw_revset_inner(max_depth - 1, ops));
