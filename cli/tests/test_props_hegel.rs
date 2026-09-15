@@ -787,7 +787,8 @@ impl JjCli {
 }
 
 #[hegel::test(hegel::Settings::new().print_blob(true).suppress_health_check
-    ([hegel::HealthCheck::TooSlow]).verbosity(hegel::Verbosity::Quiet))]
+    ([hegel::HealthCheck::TooSlow]).verbosity(hegel::Verbosity::Debug))]
+#[hegel::reproduce_failure("AXictVVLTsQwDLWbup12kAqcACHuwo47DBLn4BIchSVrtmwQ7DkEEiwoCUnTfF5KR5rponbzcfKen91P0k/P+nUtlfedqa1haxprVDQo0Qa9RGlz+TXvrLV5fHpldku0M7kVc+KozOHJoczh2SEZ0ARaurBGX6vTzs9oHxIVHUs5QRMQODjB9HhT2ABSbd63K0Z25e27FdvvDhDQMLJNOWAkkib6citb6g2fY2CD2TgcI4LrhGejrP/FkrOv5ikSDk8x2n14e78PR6UrpF0hkOSxilMWIWAQLYwkfu6PtMHa72GpvBhUFcm5j7lQY3s608lydYTgB3dI+jSXdZRLqOLG5nIs5VIhQ6gQ0v4QCPikLNe9umZVjoP7qEL5tKIvnxL20LwlEGIRktV6jRtRb93+C5QMWaDXVe7NS79xWQXV0YU6UBE8t+JUzhDqOnNoBf8K/T4qBGmeM7d6/qjA5duyKvKRNRWYS4hg02iwgBJYslm8h2eYfgFsxC/r")]
 fn test_aufhebung(tc: TestCase) {
     let jjcli = JjCli::new();
     hegel::stateful::run(jjcli, tc);

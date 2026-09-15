@@ -197,4 +197,4 @@ strip = "debuginfo"
 codegen-units = 1
 
 [patch.crates-io]
-pollster = { path = "/users/gasper/repos/pollster" }
+pollster = { path = "../pollster" }
